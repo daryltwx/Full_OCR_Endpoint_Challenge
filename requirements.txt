@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pytesseract
+Pillow
+pdf2image
+opencv-python-headless
+pydantic
+pydantic-settings
+pytest
+httpx
+numpy
