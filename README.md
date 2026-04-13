@@ -11,7 +11,7 @@ POST /ocr (multipart file upload)
 [File Validation] -- invalid MIME / missing --> 400
     |
     v
-[OCR Engine] -- pdf2image + pytesseract --> raw text + page images
+[OCR Engine] -- pdf2image + PaddleOCR --> raw text + page images
     |
     v
 [Classifier] -- keyword-based priority rules --> document_type
@@ -27,7 +27,7 @@ POST /ocr (multipart file upload)
 ```
 
 **Key components:**
-- **OCR Engine** (`app/services/ocr_engine.py`): Converts PDFs to images at 300 DPI via `pdf2image`, then extracts text with `pytesseract`
+- **OCR Engine** (`app/services/ocr_engine.py`): Converts PDFs to images at 150 DPI via `pdf2image`, then extracts text with PaddleOCR (PP-OCRv5)
 - **Classifier** (`app/services/classifier.py`): Priority-ordered keyword matching (medical_certificate > receipt > referral_letter)
 - **Extractors** (`app/services/extractors/`): Regex-based field extraction, one class per document type
 - **Signature Detector** (`app/services/signature_detector.py`): OpenCV contour analysis on the lower half of page images
@@ -36,16 +36,15 @@ POST /ocr (multipart file upload)
 ## Setup
 
 ### Prerequisites
-- Python 3.10+
-- Tesseract OCR
+- Python 3.10–3.13 (PaddleOCR does not yet support 3.14)
 - Poppler (for PDF to image conversion)
 
 ```bash
 # macOS
-brew install tesseract poppler
+brew install poppler
 
 # Ubuntu/Debian
-sudo apt-get install tesseract-ocr poppler-utils
+sudo apt-get install poppler-utils
 ```
 
 ### Install Python dependencies
@@ -149,7 +148,7 @@ app/
   config.py                      # Settings (DPI, MIME types, thresholds)
   routes/ocr.py                  # POST /ocr endpoint
   services/
-    ocr_engine.py                # pdf2image + pytesseract
+    ocr_engine.py                # pdf2image + PaddleOCR
     classifier.py                # Keyword-based document classification
     signature_detector.py        # OpenCV contour analysis
     extractors/
