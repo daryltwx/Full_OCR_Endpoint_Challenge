@@ -8,6 +8,12 @@ class Settings(BaseSettings):
         "image/jpeg",
         "image/png",
     }
+    # Preprocessing settings
+    preprocess_enabled: bool = True
+    preprocess_block_size: int = 15       # adaptive threshold block size (odd)
+    preprocess_constant: int = 10         # adaptive threshold C value
+    preprocess_line_scale: int = 30       # kernel length = width/this for horiz lines
+
     # Signature detection thresholds
     sig_min_contour_area: int = 200
     sig_max_contour_area: int = 50000
