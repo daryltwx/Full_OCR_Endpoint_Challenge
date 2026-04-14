@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.services.ocr_engine import run_ocr
-from app.services.classifier import classify_document
-from app.services.extractors import EXTRACTOR_REGISTRY
+from app.services.classifier_agent import classify_document
+from app.services.extractor_agent import extract_fields
 
 router = APIRouter()
 
@@ -21,20 +21,18 @@ async def ocr_endpoint(file: UploadFile = File(...)):
 
     file_bytes = await file.read()
 
-    # OCR
+    # Agent 1: OCR (Tesseract)
     text, images = run_ocr(file_bytes, file.content_type)
 
-    # Classify
+    # Agent 2: Classifier (LLM)
     document_type = classify_document(text)
     if document_type is None:
         return JSONResponse(
             status_code=422, content={"error": "unsupported_document_type"}
         )
 
-    # Extract
-    extractor_cls = EXTRACTOR_REGISTRY[document_type]
-    extractor = extractor_cls()
-    fields = extractor.extract(text, images)
+    # Agent 3: Extractor (LLM) + Agent 4: Validator (rule-based)
+    fields = extract_fields(text, images, document_type)
 
     total_time = round(time.time() - start, 2)
 

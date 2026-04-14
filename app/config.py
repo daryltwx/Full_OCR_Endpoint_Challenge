@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     sig_min_solidity: float = 0.15
     sig_max_solidity: float = 0.85
     sig_min_qualifying_contours: int = 5
+    # LLM settings
+    llm_model: str = "gemma2"
 
 
 settings = Settings()
