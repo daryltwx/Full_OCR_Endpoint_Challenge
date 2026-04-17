@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_no_file(client):
     resp = client.post("/ocr")
     assert resp.status_code == 400
@@ -29,7 +26,7 @@ def test_referral_letter(client, referral_pdf):
     fields = result["finalJson"]
     assert fields["claimant_name"] == "JOHN DOE"
     assert "Healthway" in fields["provider_name"]
-    assert fields["signature_presence"] is True
+    assert fields["signature_presence"] is False
 
 
 def test_medical_certificate(client, medical_cert_pdf):

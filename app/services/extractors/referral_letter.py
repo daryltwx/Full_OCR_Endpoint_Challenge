@@ -3,7 +3,6 @@ from PIL import Image
 
 from app.services.extractors.base import BaseExtractor
 from app.services.signature_detector import detect_signature
-from app.utils.amount_parser import parse_amount
 
 
 class ReferralLetterExtractor(BaseExtractor):

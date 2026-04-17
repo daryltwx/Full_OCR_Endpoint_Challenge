@@ -90,11 +90,13 @@
 - Utility modules normalise dates to `DD/MM/YYYY` and currency amounts to integers (cents removed)
 
 **Signature Detector** (`app/services/signature_detector.py`)
-- Crops lower 50% of each page image (where signatures typically appear)
-- Applies adaptive thresholding + morphological dilation
-- Finds contours and filters by area, solidity, and aspect ratio
-- Checks spatial clustering of qualifying contours to confirm a signature region
 - Short-circuits to `false` if text contains "electronically generated" or "no signature"
+- Crops lower 50% of each page image (where signatures typically appear)
+- Applies adaptive thresholding + morphological dilation to find contours
+- **Early blob detection**: scans for a large (area > 10k), non-rectangular, roughly-square contour above the footer zone — a strong indicator of a handwritten signature blob
+- **Multi-stage filtering** for smaller/fragmented signatures: filters contours by area, solidity, aspect ratio, extent (rejects solid rectangles), and width (rejects page-spanning bars)
+- Discards crop-boundary artefacts and checks for text-line patterns (contours aligned in horizontal bands indicate printed text, not handwriting)
+- Falls back to spatial clustering of qualifying contours to confirm a signature region
 
 ---
 
@@ -130,7 +132,7 @@ curl -X POST -F "file=@sample_documents/referral_letter.pdf" http://localhost:80
     "finalJson": {
       "claimant_name": "JOHN DOE",
       "provider_name": "Healthway Screening @ Centrepoint",
-      "signature_presence": true,
+      "signature_presence": false,
       "total_amount_paid": null,
       "total_approved_amount": null,
       "total_requested_amount": null
@@ -233,7 +235,54 @@ Total                         31 passed
 
 ---
 
-## 5. Limitations and Future Improvements
+## 5. Experimentation & Iterations
+
+Three alternative approaches were explored on separate branches before settling on the final Tesseract + regex pipeline.
+
+### 5.1 Agentic LLM Pipeline (`02_agentic_ocr`)
+
+Replaced the keyword classifier and regex extractors with a four-agent pipeline using **gemma2 (9B)** running locally via **Ollama**. The LLM handled both classification and field extraction, while a rule-based validator ensured deterministic output formatting (dates, amounts).
+
+| Aspect | Finding |
+|--------|---------|
+| **Pros** | Dramatically simpler extraction logic (~10-line prompts vs ~200 lines of regex per doc type); handled OCR noise naturally (e.g., garbled characters); easier to extend to new document types |
+| **Cons** | ~10x slower (~15-20s per request vs ~1.3s); required Ollama + 5.4 GB model download; non-deterministic outputs; prompt engineering fragility (e.g., `provider_name` initially returned doctor's name instead of clinic) |
+| **Result** | All 31 tests pass with identical extraction accuracy. Not chosen for submission due to heavy infrastructure requirements and slow test execution |
+
+### 5.2 PaddleOCR (`03_paddleOCR`)
+
+Swapped Tesseract for **PaddleOCR (PP-OCRv5)**, a deep-learning-based OCR engine, to test whether better raw text quality would improve extraction.
+
+| Aspect | Finding |
+|--------|---------|
+| **Pros** | Significantly better raw OCR accuracy — correctly reads `30-Nov-2022` where Tesseract produces `40-Nov-2027?`; cleaner handling of checkboxes and special characters; no system dependency (`pip install` only); lower DPI sufficient (150 vs 300) |
+| **Cons** | ~30x slower (~30-50s per PDF vs ~1.3s on CPU); PaddleOCR splits text across more lines, breaking single-line regex patterns for tax/total/address — required new multi-line fallback logic; ~200 MB model download; Python <= 3.13 constraint |
+| **Result** | All three sample documents produce identical final extraction outputs despite better raw OCR. The accuracy gains eliminated some workarounds (date fallback) but introduced others (multi-line parsing). Better suited for production with GPU acceleration |
+
+### 5.3 Tesseract Image Preprocessing (`04_Tesseract_upgrade`)
+
+Added an OpenCV-based **image preprocessing step** to remove table grid lines before OCR, addressing the known limitation that Tesseract struggles with table borders.
+
+| Aspect | Finding |
+|--------|---------|
+| **Approach** | Adaptive thresholding + morphological opening to detect horizontal/vertical lines, then `cv2.inpaint()` to fill them in while preserving surrounding context. Original images are preserved for downstream signature detection |
+| **Design** | Feature-flagged (`preprocess_enabled`), fully configurable thresholds, 5 unit tests covering edge cases (blank, all-black, small images) |
+| **Limitation** | No measured accuracy improvement on the sample documents — the preprocessing targets a real issue but the three sample docs don't heavily trigger it |
+
+### 5.4 Why Tesseract + Regex Was Chosen
+
+| Criterion | Decision rationale |
+|-----------|-------------------|
+| **Evaluator experience** | Zero-friction setup (`brew install tesseract`), fast tests (~4s), deterministic results |
+| **Accuracy** | All approaches produce identical final outputs on the sample documents |
+| **Simplicity** | No model downloads, no GPU, no LLM infrastructure |
+| **Speed** | ~1.3s per document vs 15-50s for alternatives |
+
+The agentic and PaddleOCR approaches are better suited for production (flexibility and accuracy respectively), but Tesseract + regex is the most practical choice for a take-home assessment context.
+
+---
+
+## 6. Limitations and Future Improvements
 
 | Limitation | Potential Improvement |
 |------------|----------------------|
@@ -246,7 +295,7 @@ Total                         31 passed
 
 ---
 
-## 6. Project Structure
+## 7. Project Structure
 
 ```
 app/
@@ -268,4 +317,5 @@ app/
     date_parser.py               # "30-Nov-2022" -> "30/11/2022"
 tests/                           # 31 unit + integration tests
 sample_documents/                # 3 sample PDFs for testing
+Makefile                         # make setup / run / test / lint / clean
 ```

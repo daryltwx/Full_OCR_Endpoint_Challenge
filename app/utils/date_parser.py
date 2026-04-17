@@ -1,5 +1,4 @@
 import re
-from datetime import datetime
 
 _MONTH_MAP = {
     "jan": "01", "feb": "02", "mar": "03", "apr": "04",
@@ -21,7 +20,16 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 
 
 def _valid_date(day: str, month: str, year: str) -> bool:
-    """Check that day/month/year form a plausible date."""
+    """Check that day/month/year form a plausible date.
+
+    Args:
+        day: Day string (e.g. ``"30"``).
+        month: Month string (e.g. ``"11"``).
+        year: Four-digit year string (e.g. ``"2022"``).
+
+    Returns:
+        True if the values represent a plausible calendar date.
+    """
     try:
         d, m, y = int(day), int(month), int(year)
         return 1 <= d <= 31 and 1 <= m <= 12 and 1900 <= y <= 2099
@@ -30,7 +38,14 @@ def _valid_date(day: str, month: str, year: str) -> bool:
 
 
 def parse_date(raw: str | None) -> str | None:
-    """Normalise a date string to DD/MM/YYYY. Returns None on failure."""
+    """Normalise a date string to DD/MM/YYYY format.
+
+    Args:
+        raw: A date string in any recognised format, or None.
+
+    Returns:
+        The date formatted as ``DD/MM/YYYY``, or None on failure.
+    """
     if raw is None:
         return None
     raw = raw.strip()

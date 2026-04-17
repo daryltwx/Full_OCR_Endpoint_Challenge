@@ -30,13 +30,13 @@ POST /ocr (multipart file upload)
 - **OCR Engine** (`app/services/ocr_engine.py`): Converts PDFs to images at 300 DPI via `pdf2image`, then extracts text with `pytesseract`
 - **Classifier** (`app/services/classifier.py`): Priority-ordered keyword matching (medical_certificate > receipt > referral_letter)
 - **Extractors** (`app/services/extractors/`): Regex-based field extraction, one class per document type
-- **Signature Detector** (`app/services/signature_detector.py`): OpenCV contour analysis on the lower half of page images
+- **Signature Detector** (`app/services/signature_detector.py`): OpenCV contour analysis on the lower half of page images — early blob detection for large signature marks, plus multi-stage filtering (extent, text-line rejection, spatial clustering) to distinguish handwriting from printed text and redaction bars
 - **Utilities** (`app/utils/`): Date normalisation (to DD/MM/YYYY) and amount parsing (currency string to integer)
 
 ## Setup
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.14+
 - Tesseract OCR
 - Poppler (for PDF to image conversion)
 
@@ -48,27 +48,21 @@ brew install tesseract poppler
 sudo apt-get install tesseract-ocr poppler-utils
 ```
 
-### Install Python dependencies
+### Quick start
 
 ```bash
-# Using uv (recommended)
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
+make setup   # create venv and install dependencies
+make run     # start the server at http://localhost:8000
+```
 
-# Or using pip
+Or manually:
+
+```bash
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Run the server
-
-```bash
 uvicorn app.main:app --reload
 ```
-
-The server starts at `http://localhost:8000`.
 
 ## Usage
 
@@ -116,7 +110,7 @@ curl -X POST -F "file=@sample_documents/receipt.pdf" http://localhost:8000/ocr
 ## Run tests
 
 ```bash
-pytest tests/ -v
+make test
 ```
 
 ## Extending to new document types
@@ -163,4 +157,5 @@ app/
     date_parser.py               # "30-Nov-2022" -> "30/11/2022"
 tests/                           # Unit + integration tests
 sample_documents/                # Sample PDFs for testing
+Makefile                         # make setup / run / test / lint / clean
 ```

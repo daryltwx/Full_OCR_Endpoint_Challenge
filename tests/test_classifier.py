@@ -22,6 +22,6 @@ def test_unknown_document():
 
 
 def test_medical_certificate_priority():
-    """medical_certificate should win over referral when both keywords present."""
+    """Test that medical_certificate wins over referral when both keywords present."""
     text = "Dear Dr, this medical certificate is to certify unfit for duty"
     assert classify_document(text) == "medical_certificate"
